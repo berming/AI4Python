@@ -34,12 +34,39 @@ def fetch_hot_movies_magnet(url):
         title_elem = card.find('h5', class_='card-title')
         if title_elem:
             title = title_elem.text.strip()
-            link = title_elem.find('a')['href']
+            link_elem = title_elem.find('a')
+            if link_elem:
+                link = link_elem.get('href')
+            else:
+                link = ''
+
+            # 查找文件数量、文件大小、时间戳、BTIH
             details_elem = card.find_all('p', class_='card-text')
-            files = details_elem[0].text.strip().split('：')[1].strip()
-            size = details_elem[1].text.strip().split('：')[1].strip()
-            timestamp = details_elem[2].text.strip().split('：')[1].strip()
-            btih = details_elem[2].find_next_sibling('p').text.strip().split('：')[1].strip()
+
+            files = ''
+            size = ''
+            timestamp = ''
+            btih = ''
+
+            if len(details_elem) > 0:
+                files_text = details_elem[0].text.strip()
+                if '文件数量' in files_text:
+                    files = files_text.split('：')[1].strip()
+
+            if len(details_elem) > 1:
+                size_text = details_elem[1].text.strip()
+                if '文件大小' in size_text:
+                    size = size_text.split('：')[1].strip()
+
+            if len(details_elem) > 2:
+                timestamp_text = details_elem[2].text.strip()
+                if '收录时间' in timestamp_text:
+                    timestamp = timestamp_text.split('：')[1].strip()
+
+            if len(details_elem) > 3:
+                btih_text = details_elem[3].text.strip()
+                if '种子哈希' in btih_text:
+                    btih = btih_text.split('：')[1].strip()
 
             movie_info = {
                 'title': title,
