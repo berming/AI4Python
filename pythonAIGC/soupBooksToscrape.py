@@ -1,13 +1,17 @@
 import requests
 from bs4 import BeautifulSoup
+import pandas as pd
 
 # 基础URL
 base_url = "http://books.toscrape.com/catalogue/page-{}.html"
 book_base_url = "http://books.toscrape.com/catalogue/{}"
 
+# 用于存储书籍信息的列表
+books_data = []
+
 # 迭代所有页面
 page = 1
-while True:
+while page < 8:
     # 构建当前页面的URL
     url = base_url.format(page)
     response = requests.get(url)
@@ -39,24 +43,32 @@ while True:
 
         # 提取详细信息
         description = book_soup.find('meta', {'name': 'description'})['content'].strip()
-        upc = book_soup.find('th', text='UPC').find_next_sibling('td').text
-        product_type = book_soup.find('th', text='Product Type').find_next_sibling('td').text
-        price_excl_tax = book_soup.find('th', text='Price (excl. tax)').find_next_sibling('td').text
-        price_incl_tax = book_soup.find('th', text='Price (incl. tax)').find_next_sibling('td').text
-        tax = book_soup.find('th', text='Tax').find_next_sibling('td').text
-        availability = book_soup.find('th', text='Availability').find_next_sibling('td').text
-        number_of_reviews = book_soup.find('th', text='Number of reviews').find_next_sibling('td').text
+        upc = book_soup.find('th', string='UPC').find_next_sibling('td').text
+        product_type = book_soup.find('th', string='Product Type').find_next_sibling('td').text
+        price_excl_tax = book_soup.find('th', string='Price (excl. tax)').find_next_sibling('td').text
+        price_incl_tax = book_soup.find('th', string='Price (incl. tax)').find_next_sibling('td').text
+        tax = book_soup.find('th', string='Tax').find_next_sibling('td').text
+        availability = book_soup.find('th', string='Availability').find_next_sibling('td').text
+        number_of_reviews = book_soup.find('th', string='Number of reviews').find_next_sibling('td').text
 
-        print(f"书名: {title}")
-        print(f"价格: {price}")
-        print(f"库存情况: {availability}")
-        print(f"UPC: {upc}")
-        print(f"产品类型: {product_type}")
-        print(f"税前价格: {price_excl_tax}")
-        print(f"含税价格: {price_incl_tax}")
-        print(f"税: {tax}")
-        print(f"描述: {description}")
-        print(f"评论数: {number_of_reviews}")
-        print('-' * 20)
+        # 将书籍信息添加到列表中
+        books_data.append({
+            '书名': title,
+            '价格': price,
+            '库存情况': availability,
+            'UPC': upc,
+            '产品类型': product_type,
+            '税前价格': price_excl_tax,
+            '含税价格': price_incl_tax,
+            '税': tax,
+            '描述': description,
+            '评论数': number_of_reviews
+        })
 
     page += 1
+
+# 将数据保存到Excel文件中
+df = pd.DataFrame(books_data)
+df.to_excel('books_info.xlsx', index=False)
+
+print("数据已保存到books_info.xlsx文件中")
