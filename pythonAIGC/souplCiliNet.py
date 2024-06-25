@@ -1,10 +1,10 @@
+import requests
 from bs4 import BeautifulSoup
+import pandas as pd
 from selenium import webdriver
-from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import time
-import pandas as pd
 
 # 设置Chrome选项
 options = webdriver.ChromeOptions()
@@ -21,7 +21,7 @@ url = "https://ciliku.net/search/热门电影"
 driver.get(url)
 
 # 等待页面加载完成
-time.sleep(5)  # 可以根据需要调整等待时间
+time.sleep(3)  # 可以根据需要调整等待时间
 
 # 获取渲染后的HTML
 html = driver.page_source
@@ -35,14 +35,18 @@ movies_data = []
 # 找到所有电影的容器
 movies = soup.find_all('div', class_='card mb-4')
 
+# 创建一个空的 DataFrame 来存储数据
+columns = ['标题', '文件数量', '文件大小', '链接', '磁力链接']
+df = pd.DataFrame(columns=columns)
+
 # 遍历每部电影并提取信息
 for movie in movies:
     title_element = movie.find('h5', class_='card-title text-primary')
     title = title_element.get_text(strip=True)
 
     link_element = title_element.find('a')
-    link = link_element['href'] if link_element and 'href' in link_element.attrs else '链接不可用'
-    link = "https://ciliku.net" + link  # 补全链接
+    movie_link = link_element['href'] if link_element and 'href' in link_element.attrs else '链接不可用'
+    movie_link = "https://ciliku.net" + movie_link  # 补全链接
 
     subtitle_element = movie.find('div', class_='card-subtitle text-muted mb-3')
     if subtitle_element:
@@ -58,30 +62,43 @@ for movie in movies:
         file_count = '未知'
         file_size = '未知'
 
+    # 访问电影详情页获取磁力链接
+    driver.get(movie_link)
+    time.sleep(2)  # 等待页面加载完成
+
+    # 获取渲染后的HTML
+    movie_html = driver.page_source
+    movie_soup = BeautifulSoup(movie_html, 'html.parser')
+
+    # 查找资源下载按钮，提取磁力链接
+    download_btn = movie_soup.find('a', string='资源下载')
+    magnet_link = ''
+    if download_btn:
+        download_link = download_btn['href']
+        # 这里可以进一步访问下载链接页面来提取磁力链接，根据实际情况调整
+        # 简化处理，直接将资源下载链接作为磁力链接（实际情况可能不同）
+        magnet_link = download_link
+
     movie_info = {
         '标题': title,
         '文件数量': file_count,
         '文件大小': file_size,
-        '链接': link
+        '链接': movie_link,
+        '磁力链接': magnet_link
     }
 
+    # 打印每部电影的信息
     print(movie_info)
 
-    movies_data.append({
-        '标题': title,
-        '文件数量': file_count,
-        '文件大小': file_size,
-        '链接': link
-    })
+    # 将数据添加到 DataFrame
+    df = pd.concat([df, pd.DataFrame([movie_info])], ignore_index=True)
 
 print("数据提取完成")
 
-# 将数据保存到Excel文件中
-df = pd.DataFrame(movies_data)
-df.to_excel('movies_info.xlsx', index=False)
-
-print("数据已保存到movies_info.xlsx文件中")
-
+# 将数据写入Excel文件
+excel_file = 'ciliku_movies.xlsx'
+df.to_excel(excel_file, index=False)
+print(f"数据已保存到 {excel_file}")
 
 # 关闭浏览器
 driver.quit()
