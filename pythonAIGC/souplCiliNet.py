@@ -1,9 +1,15 @@
-import requests
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
+import time
 
 def fetch_hot_movies_magnet(url):
     """
-    Fetch magnet search results for hot movies from given URL.
+    Fetch magnet search results for hot movies from given URL using Selenium and BeautifulSoup.
 
     Parameters:
     - url (str): The URL of the search results page.
@@ -11,72 +17,74 @@ def fetch_hot_movies_magnet(url):
     Returns:
     - list: A list of dictionaries containing movie details.
     """
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    }
+    options = Options()
+    options.headless = True  # 在后台运行Chrome
+    service = Service('/path/to/chromedriver')  # 修改为你的Chrome驱动路径
+    driver = webdriver.Chrome(service=service, options=options)
+    driver.get(url)
 
-    # 发送HTTP GET请求
-    response = requests.get(url, headers=headers)
+    try:
+        # 等待搜索结果加载完成（等待30秒）
+        WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.CLASS_NAME, 'card'))
+        )
 
-    # 检查请求是否成功
-    if response.status_code != 200:
-        print(f"Failed to fetch page: {response.status_code}")
-        return []
+        # 获取完整的HTML页面内容
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
 
-    # 解析HTML内容
-    soup = BeautifulSoup(response.text, 'html.parser')
+        # 解析电影信息
+        movie_cards = soup.find_all('div', class_='card')
 
-    # 查找电影卡片
-    movie_cards = soup.find_all('div', class_='card')
+        movies = []
+        for card in movie_cards:
+            title_elem = card.find('h5', class_='card-title')
+            if title_elem:
+                title = title_elem.text.strip()
+                link_elem = title_elem.find('a')
+                if link_elem:
+                    link = link_elem.get('href')
+                else:
+                    link = ''
 
-    movies = []
-    for card in movie_cards:
-        title_elem = card.find('h5', class_='card-title')
-        if title_elem:
-            title = title_elem.text.strip()
-            link_elem = title_elem.find('a')
-            if link_elem:
-                link = link_elem.get('href')
-            else:
-                link = ''
+                details_elem = card.find_all('p', class_='card-text')
 
-            # 查找文件数量、文件大小、时间戳、BTIH
-            details_elem = card.find_all('p', class_='card-text')
+                files = ''
+                size = ''
+                timestamp = ''
+                btih = ''
 
-            files = ''
-            size = ''
-            timestamp = ''
-            btih = ''
+                if len(details_elem) > 0:
+                    files_text = details_elem[0].text.strip()
+                    if '文件数量' in files_text:
+                        files = files_text.split('：')[1].strip()
 
-            if len(details_elem) > 0:
-                files_text = details_elem[0].text.strip()
-                if '文件数量' in files_text:
-                    files = files_text.split('：')[1].strip()
+                if len(details_elem) > 1:
+                    size_text = details_elem[1].text.strip()
+                    if '文件大小' in size_text:
+                        size = size_text.split('：')[1].strip()
 
-            if len(details_elem) > 1:
-                size_text = details_elem[1].text.strip()
-                if '文件大小' in size_text:
-                    size = size_text.split('：')[1].strip()
+                if len(details_elem) > 2:
+                    timestamp_text = details_elem[2].text.strip()
+                    if '收录时间' in timestamp_text:
+                        timestamp = timestamp_text.split('：')[1].strip()
 
-            if len(details_elem) > 2:
-                timestamp_text = details_elem[2].text.strip()
-                if '收录时间' in timestamp_text:
-                    timestamp = timestamp_text.split('：')[1].strip()
+                if len(details_elem) > 3:
+                    btih_text = details_elem[3].text.strip()
+                    if '种子哈希' in btih_text:
+                        btih = btih_text.split('：')[1].strip()
 
-            if len(details_elem) > 3:
-                btih_text = details_elem[3].text.strip()
-                if '种子哈希' in btih_text:
-                    btih = btih_text.split('：')[1].strip()
+                movie_info = {
+                    'title': title,
+                    'link': link,
+                    'files': files,
+                    'size': size,
+                    'timestamp': timestamp,
+                    'btih': btih
+                }
+                movies.append(movie_info)
 
-            movie_info = {
-                'title': title,
-                'link': link,
-                'files': files,
-                'size': size,
-                'timestamp': timestamp,
-                'btih': btih
-            }
-            movies.append(movie_info)
+    finally:
+        driver.quit()
 
     return movies
 
