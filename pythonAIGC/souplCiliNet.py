@@ -4,6 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import time
+import pandas as pd
 
 # 设置Chrome选项
 options = webdriver.ChromeOptions()
@@ -65,9 +66,22 @@ for movie in movies:
     }
 
     print(movie_info)
-    print('-' * 20)
+
+    movies_data.append({
+        '标题': title,
+        '文件数量': file_count,
+        '文件大小': file_size,
+        '链接': link
+    })
 
 print("数据提取完成")
+
+# 将数据保存到Excel文件中
+df = pd.DataFrame(movies_data)
+df.to_excel('movies_info.xlsx', index=False)
+
+print("数据已保存到movies_info.xlsx文件中")
+
 
 # 关闭浏览器
 driver.quit()
