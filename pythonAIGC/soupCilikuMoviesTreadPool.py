@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
+import concurrent.futures
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
@@ -35,20 +36,32 @@ movies_data = []
 # 找到所有电影的容器
 movies = soup.find_all('div', class_='card mb-4')
 
+# 存储每部电影的链接
+movie_links = []
+
+# 遍历所有电影，收集链接
+for movie in movies:
+    title_element = movie.find('h5', class_='card-title text-primary')
+    link_element = title_element.find('a')
+    movie_link = link_element['href'] if link_element and 'href' in link_element.attrs else '链接不可用'
+    movie_links.append("https://ciliku.net" + movie_link)  # 补全链接
+
 # 创建一个空的 DataFrame 来存储数据
 columns = ['标题', '文件数量', '文件大小', '链接', '磁力链接']
 df = pd.DataFrame(columns=columns)
 
-# 遍历每部电影并提取信息
-for movie in movies:
-    title_element = movie.find('h5', class_='card-title text-primary')
+# 定义函数用于处理单个电影页面的信息提取
+def process_movie(movie_link):
+    driver.get(movie_link)
+    time.sleep(3)  # 等待页面加载完成
+
+    movie_html = driver.page_source
+    movie_soup = BeautifulSoup(movie_html, 'html.parser')
+
+    title_element = movie_soup.find('h1', class_='card-title')
     title = title_element.get_text(strip=True)
 
-    link_element = title_element.find('a')
-    movie_link = link_element['href'] if link_element and 'href' in link_element.attrs else '链接不可用'
-    movie_link = "https://ciliku.net" + movie_link  # 补全链接
-
-    subtitle_element = movie.find('div', class_='card-subtitle text-muted mb-3')
+    subtitle_element = movie_soup.find('div', class_='card-subtitle text-muted mb-3')
     if subtitle_element:
         subtitle_text = subtitle_element.get_text(strip=True)
         parts = subtitle_text.split('｜')
@@ -61,14 +74,6 @@ for movie in movies:
     else:
         file_count = '未知'
         file_size = '未知'
-
-    # 访问电影详情页获取磁力链接
-    driver.get(movie_link)
-    time.sleep(3)  # 等待页面加载完成
-
-    # 获取渲染后的HTML
-    movie_html = driver.page_source
-    movie_soup = BeautifulSoup(movie_html, 'html.parser')
 
     # 查找资源下载按钮，提取磁力链接
     download_btn = movie_soup.find('a', string='资源下载')
@@ -87,11 +92,19 @@ for movie in movies:
         '磁力链接': magnet_link
     }
 
-    # 打印每部电影的信息
-    print(movie_info)
+    return movie_info
 
-    # 将数据添加到 DataFrame
-    df = pd.concat([df, pd.DataFrame([movie_info])], ignore_index=True)
+# 使用并行处理提取每部电影的信息
+with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+    # 提交任务并获取结果
+    futures = [executor.submit(process_movie, movie_link) for movie_link in movie_links]
+    for future in concurrent.futures.as_completed(futures):
+        movie_info = future.result()
+        # 将数据添加到 DataFrame
+        df = pd.concat([df, pd.DataFrame([movie_info])], ignore_index=True)
+        # 打印每部电影的信息
+        print(movie_info)
+        print('-' * 20)
 
 print("数据提取完成")
 
