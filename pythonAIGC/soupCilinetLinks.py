@@ -108,13 +108,30 @@ def get_movie_info(url):
         print(f"处理电影信息时出现错误: {e}")
         return []
 
-if __name__ == "__main__":
-    url = 'https://ciliku.net/search/热门电影'
-    movie_info = get_movie_info(url)
 
-    if movie_info:
+if __name__ == "__main__":
+    base_url = 'https://ciliku.net/search/热门电影?page='
+    total_pages = 10  # 假设总共有3页数据
+
+    # 存储所有电影信息的列表
+    all_movies_data = []
+
+    for page_number in range(1, total_pages + 1):
+        url = base_url + str(page_number)
+        print(f"正在处理页面 {page_number}：{url}")
+
+        # 获取当前页电影信息
+        movie_info = get_movie_info(url)
+        if movie_info:
+            all_movies_data.extend(movie_info)
+        else:
+            print(f"未能获取第 {page_number} 页电影信息。")
+
+        time.sleep(3)  # 延时，避免请求过于频繁被封IP或反爬虫机制触发
+
+    if all_movies_data:
         # 将数据转换为 DataFrame
-        df = pd.DataFrame(movie_info)
+        df = pd.DataFrame(all_movies_data)
 
         # 将数据写入Excel文件
         excel_file = 'ciliku_movies.xlsx'
