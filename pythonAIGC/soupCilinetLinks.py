@@ -1,3 +1,10 @@
+# ChatGPT 生成的爬虫代码，经多次反复调试，输出正常
+
+#{'标题': '2008欧美最热门电影预告.rmvb1', '文件数量': '7', '文件大小': '826.40KB', '链接': 'https://ciliku.net/magnet/45c9f6c02dd8bfa530d15a62a8c063a6b0d14bf8/1', '磁力链接': 'magnet:?xt=urn:btih:45c9f6c02dd8bfa530d15a62a8c063a6b0d14bf8'}
+#{'标题': '辛普森一家 The Simpsons Movie (2007)/[辛普森一家].The.Simpsons.Movie.2007.阿森一族大电影 辛普森家庭电影版 辛普森一家大电影.mkv', '文件数量': '4', '文件大小': '3.20GB', '链接': 'https://ciliku.net/magnet/c549380fc91fabe0138591919fbb8d50bacbac69/0', '磁力链接': 'magnet:?xt=urn:btih:c549380fc91fabe0138591919fbb8d50bacbac69'}
+#{'标题': '果冻传媒 GDCM-066 热门电影改编《周处操三害》言嘉佑 米欧 领衔主演 .mp41', '文件数量': '2', '文件大小': '1015.08MB', '链接': 'https://ciliku.net/magnet/672AD271A9639D1B382E1D8C134EBD357452F9EB/1', '磁力链接': 'magnet:?xt=urn:btih:672AD271A9639D1B382E1D8C134EBD357452F9EB'}
+
+
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
