@@ -1,8 +1,13 @@
 # 2024-07-16 ChatGPT 生成的爬虫代码，经多次反复调试，输出正常
+# 2024-07-23 ChatGPT 添加分页按钮，有出错提示：“正在处理第 1 页 没有找到下一页按钮: Message: ”
+# 2024-07-24 手工修正错误，时而正确，时而抛异常
+
 
 #{'标题': '2008欧美最热门电影预告.rmvb1', '文件数量': '7', '文件大小': '826.40KB', '链接': 'https://ciliku.net/magnet/45c9f6c02dd8bfa530d15a62a8c063a6b0d14bf8/1', '磁力链接': 'magnet:?xt=urn:btih:45c9f6c02dd8bfa530d15a62a8c063a6b0d14bf8'}
 #{'标题': '辛普森一家 The Simpsons Movie (2007)/[辛普森一家].The.Simpsons.Movie.2007.阿森一族大电影 辛普森家庭电影版 辛普森一家大电影.mkv', '文件数量': '4', '文件大小': '3.20GB', '链接': 'https://ciliku.net/magnet/c549380fc91fabe0138591919fbb8d50bacbac69/0', '磁力链接': 'magnet:?xt=urn:btih:c549380fc91fabe0138591919fbb8d50bacbac69'}
 #{'标题': '果冻传媒 GDCM-066 热门电影改编《周处操三害》言嘉佑 米欧 领衔主演 .mp41', '文件数量': '2', '文件大小': '1015.08MB', '链接': 'https://ciliku.net/magnet/672AD271A9639D1B382E1D8C134EBD357452F9EB/1', '磁力链接': 'magnet:?xt=urn:btih:672AD271A9639D1B382E1D8C134EBD357452F9EB'}
+
+
 import time
 import pandas as pd
 from bs4 import BeautifulSoup
@@ -23,7 +28,19 @@ options.add_argument('blink-settings=imagesEnabled=false')  # 不加载图片, �
 # 启动Chrome浏览器
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-def get_movie_info(url):
+def convert_file_size(file_size_str):
+    """Convert file size to GB."""
+    size, unit = float(file_size_str[:-2].replace(',', '').strip()), file_size_str[-2:].upper()
+    if unit == 'GB':
+        return size  # Already in GB
+    elif unit == 'MB':
+        return size / 1024  # MB to GB
+    elif unit == 'KB':
+        return size / (1024 * 1024)  # KB to GB
+    else:
+        return 0
+
+def get_movie_info(url, page_number):
     try:
         # 打开目标网址
         driver.get(url)
@@ -45,9 +62,9 @@ def get_movie_info(url):
 
         for movie in movies:
             title_element = movie.find('h5', class_='card-title text-primary')
-            title = title_element.get_text(strip=True)
+            title = title_element.get_text(strip=True) if title_element else '未知'
 
-            link_element = title_element.find('a')
+            link_element = title_element.find('a') if title_element else None
             movie_link = link_element['href'] if link_element and 'href' in link_element.attrs else '链接不可用'
             movie_link = "https://ciliku.net" + movie_link  # 补全链接
 
@@ -56,8 +73,8 @@ def get_movie_info(url):
                 subtitle_text = subtitle_element.get_text(strip=True)
                 parts = subtitle_text.split('｜')
                 if len(parts) == 2:
-                    file_count = parts[0].split('：')[1].strip()
-                    file_size = parts[1].split('：')[1].strip()
+                    file_count = int(parts[0].split('：')[1].strip())
+                    file_size = convert_file_size(parts[1].split('：')[1].strip())
                 else:
                     file_count = '未知'
                     file_size = '未知'
@@ -94,7 +111,7 @@ def get_movie_info(url):
             movie_info = {
                 '标题': title,
                 '文件数量': file_count,
-                '文件大小': file_size,
+                '文件大小 (GB)': file_size,
                 '链接': movie_link,
                 '磁力链接': magnet_link,
                 '收录时间': record_time,
@@ -103,35 +120,62 @@ def get_movie_info(url):
 
             movies_data.append(movie_info)
 
+        # 恢复打开目标网址
+        driver.get(url)
+
+        # 等待页面加载完成
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'card.mb-4')))
+
         return movies_data
     except Exception as e:
         print(f"处理电影信息时出现错误: {e}")
         return []
 
+def get_all_pages(url, max_pages=10):
+    all_movie_info = []
+    page_number = 1
+
+    while page_number <= max_pages:
+        print(f"正在处理第 {page_number} 页")
+        page_url = f"{url}?page={page_number}"
+        movie_info = get_movie_info(url, page_number)
+
+        if not movie_info:
+            break
+
+        all_movie_info.extend(movie_info)
+        page_number += 1
+
+        # 检查是否有下一页
+        try:
+            # 查找并点击“下一页”按钮
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'button.btn-next')))
+            next_button = driver.find_element(By.CSS_SELECTOR, 'button.btn-next')
+
+            # 确保按钮在视口内
+            driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
+            time.sleep(2)  # 等待滚动完成
+
+            # 使用JavaScript直接点击按钮，绕过元素遮挡的问题
+            driver.execute_script("arguments[0].click();", next_button)
+            time.sleep(2)  # 等待页面加载
+        except Exception as e:
+            print(f"没有找到下一页按钮: {e}")
+            # 记录当前页面HTML以便调试
+            with open(f"page_{page_number}.html", "w", encoding="utf-8") as f:
+                f.write(driver.page_source)
+            break
+
+    return all_movie_info
 
 if __name__ == "__main__":
-    base_url = 'https://ciliku.net/search/热门电影?page='
-    total_pages = 10  # 假设总共有3页数据
+    url = 'https://ciliku.net/search/高分电影'
+    max_pages = 8  # 设置最大分页数
+    all_movie_info = get_all_pages(url, max_pages)
 
-    # 存储所有电影信息的列表
-    all_movies_data = []
-
-    for page_number in range(1, total_pages + 1):
-        url = base_url + str(page_number)
-        print(f"正在处理页面 {page_number}：{url}")
-
-        # 获取当前页电影信息
-        movie_info = get_movie_info(url)
-        if movie_info:
-            all_movies_data.extend(movie_info)
-        else:
-            print(f"未能获取第 {page_number} 页电影信息。")
-
-        time.sleep(3)  # 延时，避免请求过于频繁被封IP或反爬虫机制触发
-
-    if all_movies_data:
+    if all_movie_info:
         # 将数据转换为 DataFrame
-        df = pd.DataFrame(all_movies_data)
+        df = pd.DataFrame(all_movie_info)
 
         # 将数据写入Excel文件
         excel_file = 'ciliku_movies.xlsx'
