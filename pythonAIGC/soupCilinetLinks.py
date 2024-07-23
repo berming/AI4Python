@@ -68,45 +68,11 @@ def get_movie_info(url, page_number):
             movie_link = link_element['href'] if link_element and 'href' in link_element.attrs else '链接不可用'
             movie_link = "https://ciliku.net" + movie_link  # 补全链接
 
-            subtitle_element = movie.find('div', class_='card-subtitle text-muted mb-3')
-            if subtitle_element:
-                subtitle_text = subtitle_element.get_text(strip=True)
-                parts = subtitle_text.split('｜')
-                if len(parts) == 2:
-                    file_count = int(parts[0].split('：')[1].strip())
-                    file_size = convert_file_size(parts[1].split('：')[1].strip())
-                else:
-                    file_count = '未知'
-                    file_size = '未知'
-            else:
-                file_count = '未知'
-                file_size = '未知'
+            file_count, file_size = get_file_size(movie)
 
-            # 获取收录时间和种子哈希
-            record_time_element = movie.find('p', class_='card-text')
-            if record_time_element:
-                record_time_text = record_time_element.get_text(strip=True)
-                record_time = record_time_text.split('：')[1].strip().split(' | ')[0]
-                seed_hash = record_time_text.split('：')[2].strip().split(' | ')[0]
-            else:
-                record_time = '未知'
-                seed_hash = '未知'
+            record_time, seed_hash = get_record_time(movie)
 
-            # 访问电影详情页获取磁力链接
-            driver.get(movie_link)
-
-            # 等待页面加载完成
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'a')))
-
-            # 获取渲染后的HTML
-            movie_html = driver.page_source
-            movie_soup = BeautifulSoup(movie_html, 'html.parser')
-
-            # 查找磁力链接
-            magnet_link = ''
-            magnet_element = movie_soup.find('a', href=lambda x: x and x.startswith('magnet:?xt='))
-            if magnet_element:
-                magnet_link = magnet_element['href']
+            magnet_link = get_magnet_link(movie_link)
 
             movie_info = {
                 '标题': title,
@@ -130,6 +96,53 @@ def get_movie_info(url, page_number):
     except Exception as e:
         print(f"处理电影信息时出现错误: {e}")
         return []
+
+
+def get_record_time(movie):
+    # 获取收录时间和种子哈希
+    record_time_element = movie.find('p', class_='card-text')
+    if record_time_element:
+        record_time_text = record_time_element.get_text(strip=True)
+        record_time = record_time_text.split('：')[1].strip().split(' | ')[0]
+        seed_hash = record_time_text.split('：')[2].strip().split(' | ')[0]
+    else:
+        record_time = '未知'
+        seed_hash = '未知'
+    return record_time, seed_hash
+
+
+def get_file_size(movie):
+    subtitle_element = movie.find('div', class_='card-subtitle text-muted mb-3')
+    if subtitle_element:
+        subtitle_text = subtitle_element.get_text(strip=True)
+        parts = subtitle_text.split('｜')
+        if len(parts) == 2:
+            file_count = int(parts[0].split('：')[1].strip())
+            file_size = convert_file_size(parts[1].split('：')[1].strip())
+        else:
+            file_count = '未知'
+            file_size = '未知'
+    else:
+        file_count = '未知'
+        file_size = '未知'
+    return file_count, file_size
+
+
+def get_magnet_link(movie_link):
+    # 访问电影详情页获取磁力链接
+    driver.get(movie_link)
+    # 等待页面加载完成
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'a')))
+    # 获取渲染后的HTML
+    movie_html = driver.page_source
+    movie_soup = BeautifulSoup(movie_html, 'html.parser')
+    # 查找磁力链接
+    magnet_link = ''
+    magnet_element = movie_soup.find('a', href=lambda x: x and x.startswith('magnet:?xt='))
+    if magnet_element:
+        magnet_link = magnet_element['href']
+    return magnet_link
+
 
 def get_all_pages(url, max_pages=10):
     all_movie_info = []
